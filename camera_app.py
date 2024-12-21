@@ -19,6 +19,16 @@ from weather_service import WeatherService
 from math import radians, cos, sin, asin, sqrt
 from datetime import datetime
 
+try:
+    from android.storage import primary_external_storage_path
+except ImportError:
+    primary_external_storage_path = None
+
+try:
+    from plyer import storagepath
+except ImportError:
+    storagepath = None
+
 # Import configuration parameters
 from config import WEATHER_FETCH_INTERVAL, DISTANCE_THRESHOLD, VIDEO_CHUNK_DURATION
 
@@ -32,6 +42,17 @@ class CameraApp(App):
         Window.size = (800, 600)  # Set window size
 
         self.recording = False
+
+        # Determining storage directory
+        if primary_external_storage_path:
+            #For Android-specific storage
+            self.storage_path = primary_external_storage_path()
+        elif storagepath:
+            #For Desktop platforms (Documents folder)
+            self.storage_path = storagepath.get_documents_dir()
+        else:
+            # Fallback to app-specific storage
+            self.storage_path = App.get_running_app().user_data_dir
         self.camera = Camera(play=True)  # Use Kivy's Camera widget
 
         self.status_label = Label(text="Press Start to begin recording", size_hint=(1, 0.1))
@@ -58,13 +79,13 @@ class CameraApp(App):
             logger.error(ve)
             return layout
 
-        # Path to store video chunks
-        self.video_directory = os.path.join(os.getcwd(), "videos")
+        # Path for video chunks
+        self.video_directory = os.path.join("AutoVision", "videos")
         if not os.path.exists(self.video_directory):
             os.makedirs(self.video_directory)
 
-        # Path to store weather and video data
-        self.data_file = os.path.join(os.getcwd(), "weather_videos.json")
+        # Path for weather and video data
+        self.data_file = os.path.join("AutoVision", "weather_videos.json")
         if not os.path.exists(self.data_file):
             with open(self.data_file, 'w') as f:
                 json.dump([], f)
@@ -179,16 +200,16 @@ class CameraApp(App):
     
     @mainthread
     def capture_frame(self, out):
-        # Get frame data from Kivy's texture
+        # Getting frame data from Kivy's texture
         frame = self.camera.texture.pixels
         
-        # Convert to a NumPy array
+        # Converting to a NumPy array
         frame = np.frombuffer(frame, np.uint8).reshape((self.camera.texture.height, self.camera.texture.width, 4))
         
-        # Convert from RGBA to BGR (OpenCV uses BGR format)
+        # Converting from RGBA to BGR (Since OpenCV uses BGR format)
         frame = cv2.cvtColor(frame, cv2.COLOR_RGBA2BGR)
 
-        # Write the frame to the video file
+        # Writing the frame to the video file
         out.write(frame)
 
     def record_video(self):
@@ -237,14 +258,14 @@ class CameraApp(App):
             weather_data = self.weather_service.get_current_weather_by_coords(self.latitude, self.longitude)
             if weather_data:
                 self.save_data(self.filepath, weather_data)
-                self.update_weather_labels(weather_data)
+          #      self.update_weather_labels(weather_data)
             else:
                 logger.error("Failed to fetch weather data for this chunk.")
                 self.update_status("Failed to fetch weather data.")
 
             chunk_count += 1  # Increment chunk count for the next chunk
 
-        # Reset CameraApp.abc when recording stops
+        # To reset CameraApp.abc when recording stops
         CameraApp.abc = "N/A"
         # Clean up OpenCV resources
         cv2.destroyAllWindows()
@@ -287,7 +308,7 @@ class CameraApp(App):
             # Save weather data using the current CameraApp.abc
             if weather_data:
                 self.save_data(CameraApp.abc, weather_data)
-                self.update_weather_labels(weather_data)
+                #self.update_weather_labels(weather_data)
             else:
                 logger.error("Failed to fetch weather data during periodic update.")
                 self.update_status("Failed to fetch periodic weather data.")
@@ -317,7 +338,7 @@ class CameraApp(App):
                 # Create a timestamped backup filename
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                 backup_filename = f"weather_videos_{timestamp}.json"
-                backup_path = os.path.join(os.getcwd(), backup_filename)
+                backup_path = os.path.join("AutoVision", backup_filename)
                 
                 # Rename the current JSON file to the backup filename
                 os.rename(self.data_file, backup_path)
@@ -341,7 +362,7 @@ class CameraApp(App):
             self.update_status("Error archiving JSON file.")
 
     def fetch_weather_data(self):
-        # This method is retained if you still want to manually fetch weather data based on geolocation
+        # to manually fetch weather data based on geolocation
         if self.latitude is not None and self.longitude is not None:
             weather_data = self.weather_service.get_current_weather_by_coords(self.latitude, self.longitude)
             if weather_data:
