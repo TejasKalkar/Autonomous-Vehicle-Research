@@ -38,6 +38,8 @@ logger = logging.getLogger(__name__)
 
 class CameraApp(App):
     abc = "N/A"
+    latd = ""
+    longd = ""
     def build(self):
         Window.size = (800, 600)  # Set window size
 
@@ -164,6 +166,8 @@ class CameraApp(App):
             "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime()),
             "video_path": video_path,
             "weather": {
+                "latitude": self.latitude,
+                "longitude": self.longitude,
                 "city": weather_data.get("city", "N/A"),
                 "temperature": weather_data.get("temperature", "N/A"),
                 "temperature_min": weather_data.get("temperature_min", "N/A"),
